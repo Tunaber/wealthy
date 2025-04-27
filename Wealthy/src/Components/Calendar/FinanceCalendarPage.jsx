@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -15,9 +15,10 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { Add, ArrowBackIos, ArrowForwardIos, Edit, Delete } from '@mui/icons-material';
+import { Add, ArrowBack, ArrowBackIos, ArrowForwardIos, Edit, Delete } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { LineChart } from '@mui/x-charts/LineChart';
+import { useNavigate } from 'react-router-dom';
 
 const CalendarContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -78,12 +79,11 @@ const TransactionItem = styled(Box)(({ theme, type }) => ({
 
 const TransactionText = styled(Typography)({
   fontSize: '0.95rem',
-  fontWeight: 600, // Полужирный для лучшей читаемости
+  fontWeight: 600,
   flexGrow: 1,
-  textShadow: '0 1px 1px rgba(255,255,255,0.7)', // Легкая тень для контраста
+  textShadow: '0 1px 1px rgba(255,255,255,0.7)',
 });
 
-// Обновил стили кнопок действий
 const TransactionActions = styled(Box)({
   display: 'flex',
   gap: '6px',
@@ -95,7 +95,7 @@ const TransactionActions = styled(Box)({
     },
   },
   '& .MuiSvgIcon-root': {
-    fontSize: '1rem', // Чуть больше иконки
+    fontSize: '1rem',
   },
 });
 
@@ -147,6 +147,7 @@ const ChartContainer = styled(Paper)(({ theme }) => ({
 }));
 
 const FinancialCalendar = () => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -161,6 +162,18 @@ const FinancialCalendar = () => {
     date: null,
   });
 
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.key === 'Escape') {
+        navigate(-1);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [navigate]);
+
   const categories = {
     income: ['Зарплата', 'Фриланс', 'Инвестиции', 'Подарок', 'Другое'],
     expense: ['Еда', 'Транспорт', 'Жилье', 'Развлечения', 'Одежда', 'Здоровье', 'Другое'],
@@ -174,7 +187,7 @@ const FinancialCalendar = () => {
 
   const getFirstDayOfMonth = (year, month) => {
     const day = new Date(year, month, 1).getDay();
-    return day === 0 ? 6 : day - 1; // Adjust to start week on Monday
+    return day === 0 ? 6 : day - 1;
   };
 
   const handlePrevMonth = () => {
@@ -248,116 +261,156 @@ const FinancialCalendar = () => {
   };
 
   const calculateMonthlyStats = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-
-    const monthlyTransactions = transactions.filter((t) => {
+    const monthTransactions = transactions.filter((t) => {
+      if (!t.date) return false;
       const transactionDate = new Date(t.date);
-      return transactionDate.getFullYear() === year && transactionDate.getMonth() === month;
+      return (
+        transactionDate.getMonth() === currentDate.getMonth() &&
+        transactionDate.getFullYear() === currentDate.getFullYear()
+      );
     });
 
-    const income = monthlyTransactions
+    const income = monthTransactions
       .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
-
-    const expenses = monthlyTransactions
+    const expenses = monthTransactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const balance = income - expenses;
-
-    return { income, expenses, balance };
+    return {
+      income,
+      expenses,
+      balance: income - expenses,
+    };
   };
 
   const getLastSixMonths = () => {
     const months = [];
+    const monthNames = [
+      'Янв',
+      'Фев',
+      'Мар',
+      'Апр',
+      'Май',
+      'Июн',
+      'Июл',
+      'Авг',
+      'Сен',
+      'Окт',
+      'Ноя',
+      'Дек',
+    ];
+
     for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      months.push(date);
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      months.push(monthNames[date.getMonth()]);
     }
+
     return months;
   };
 
   const chartData = useMemo(() => {
     const months = getLastSixMonths();
-    const incomeData = months.map((month) => {
-      const monthTransactions = transactions.filter((t) => {
-        const transactionDate = new Date(t.date);
-        return (
-          transactionDate.getFullYear() === month.getFullYear() &&
-          transactionDate.getMonth() === month.getMonth() &&
-          t.type === 'income'
-        );
-      });
-      return monthTransactions.reduce((sum, t) => sum + t.amount, 0);
-    });
+    const income = new Array(6).fill(0);
+    const expenses = new Array(6).fill(0);
 
-    const expenseData = months.map((month) => {
-      const monthTransactions = transactions.filter((t) => {
-        const transactionDate = new Date(t.date);
-        return (
-          transactionDate.getFullYear() === month.getFullYear() &&
-          transactionDate.getMonth() === month.getMonth() &&
-          t.type === 'expense'
-        );
-      });
-      return monthTransactions.reduce((sum, t) => sum + t.amount, 0);
+    transactions.forEach((t) => {
+      if (!t.date) return;
+      const transactionDate = new Date(t.date);
+      const monthDiff =
+        (currentDate.getFullYear() - transactionDate.getFullYear()) * 12 +
+        currentDate.getMonth() -
+        transactionDate.getMonth();
+
+      if (monthDiff >= 0 && monthDiff < 6) {
+        const index = 5 - monthDiff;
+        if (t.type === 'income') {
+          income[index] += t.amount;
+        } else {
+          expenses[index] += t.amount;
+        }
+      }
     });
 
     return {
-      months: months.map((m) => m.toLocaleString('default', { month: 'short' })),
-      income: incomeData,
-      expenses: expenseData,
+      months,
+      income,
+      expenses,
     };
-  }, [transactions]);
+  }, [transactions, currentDate]);
 
   const renderCalendar = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDayOfMonth = getFirstDayOfMonth(year, month);
-
     const days = [];
-    const today = new Date();
 
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<CalendarDayCell key={`empty-${i}`} isCurrentMonth={false} />);
+    // Previous month days
+    const prevMonthDays = getDaysInMonth(year, month - 1);
+    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+      const date = new Date(year, month - 1, prevMonthDays - i);
+      days.push(
+        <CalendarDayCell key={`prev-${i}`} isCurrentMonth={false}>
+          <Typography variant="caption">{prevMonthDays - i}</Typography>
+        </CalendarDayCell>,
+      );
     }
 
-    // Add cells for each day of the month
+    // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const isToday = date.toDateString() === today.toDateString();
+      const today = new Date();
+      const isToday =
+        date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear();
 
-      const dayTransactions = transactions.filter(
-        (t) => t.date && new Date(t.date).toDateString() === date.toDateString(),
-      );
+      const dayTransactions = transactions.filter((t) => {
+        if (!t.date) return false;
+        const transactionDate = new Date(t.date);
+        return (
+          transactionDate.getDate() === date.getDate() &&
+          transactionDate.getMonth() === date.getMonth() &&
+          transactionDate.getFullYear() === date.getFullYear()
+        );
+      });
 
       days.push(
         <CalendarDayCell
-          key={day}
+          key={`current-${day}`}
           isCurrentMonth={true}
           isToday={isToday}
           onClick={() => handleDateClick(date)}
         >
-          <Typography variant="body2" fontWeight={isToday ? 'bold' : 'normal'}>
-            {day}
-          </Typography>
-          {dayTransactions.map((t) => (
-            <TransactionItem key={t.id} type={t.type} onClick={(e) => e.stopPropagation()}>
-              <TransactionText>
-                {t.category}: {t.amount} ₽
-              </TransactionText>
-              <TransactionActions>
-                <IconButton size="small" onClick={() => handleEditTransaction(t)} color="primary">
-                  <Edit fontSize="small" />
-                </IconButton>
-                <IconButton size="small" onClick={() => handleDeleteClick(t)} color="error">
-                  <Delete fontSize="small" />
-                </IconButton>
-              </TransactionActions>
+          <Typography variant="caption">{day}</Typography>
+          {dayTransactions.map((transaction) => (
+            <TransactionItem key={transaction.id} type={transaction.type}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TransactionText>
+                  {transaction.amount.toLocaleString()} ₽ - {transaction.category}
+                </TransactionText>
+                <TransactionActions>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditTransaction(transaction);
+                    }}
+                  >
+                    <Edit />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(transaction);
+                    }}
+                  >
+                    <Delete />
+                  </IconButton>
+                </TransactionActions>
+              </Box>
             </TransactionItem>
           ))}
         </CalendarDayCell>,
@@ -369,9 +422,12 @@ const FinancialCalendar = () => {
 
   return (
     <Box sx={{ padding: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Финансовый календарь
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ marginRight: 2 }} aria-label="Назад">
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h4">Финансовый календарь</Typography>
+      </Box>
 
       <CalendarContainer>
         <CalendarHeader>
