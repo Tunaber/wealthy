@@ -9,6 +9,8 @@ const FeatureCard = React.memo(({ title, description, icon, color, delay }) => {
   const handleClick = () => {
     if (title === 'Трекер финансов') {
       navigate('/calendar');
+    } else if (title === 'Ипотечный калькулятор') {
+      navigate('/mortgage');
     }
   };
 
