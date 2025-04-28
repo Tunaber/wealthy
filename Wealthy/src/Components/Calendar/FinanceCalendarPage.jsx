@@ -15,9 +15,10 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { Add, ArrowBackIos, ArrowForwardIos, Edit, Delete } from '@mui/icons-material';
+import { Add, ArrowBackIos, ArrowForwardIos, Edit, Delete, ArrowBack } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { LineChart } from '@mui/x-charts/LineChart';
+import { useNavigate } from 'react-router-dom';
 
 const CalendarContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -160,6 +161,7 @@ const FinancialCalendar = () => {
     amount: '',
     date: null,
   });
+  const navigate = useNavigate();
 
   const categories = {
     income: ['Зарплата', 'Фриланс', 'Инвестиции', 'Подарок', 'Другое'],
@@ -367,9 +369,36 @@ const FinancialCalendar = () => {
     return days;
   };
 
+  React.useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape') {
+        navigate('/');
+      }
+    };
+    window.addEventListener('keydown', handleEscKey);
+    return () => {
+      window.removeEventListener('keydown', handleEscKey);
+    };
+  }, [navigate]);
+
   return (
-    <Box sx={{ padding: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ padding: 3, position: 'relative' }}>
+      <IconButton
+        onClick={() => navigate('/')}
+        sx={{
+          position: 'absolute',
+          left: 20,
+          top: 20,
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          zIndex: 10,
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 1)',
+          },
+        }}
+      >
+        <ArrowBack />
+      </IconButton>
+      <Typography variant="h4" gutterBottom sx={{ ml: 7 }}>
         Финансовый календарь
       </Typography>
 
