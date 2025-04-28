@@ -11,6 +11,8 @@ const FeatureCard = React.memo(({ title, description, icon, color, delay }) => {
       navigate('/calendar');
     } else if (title === 'Ипотечный калькулятор') {
       navigate('/mortgage');
+    } else if (title === 'Конвертер валют') {
+      navigate('/converter');
     }
   };
 
