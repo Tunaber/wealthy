@@ -13,6 +13,8 @@ const FeatureCard = React.memo(({ title, description, icon, color, delay }) => {
       navigate('/mortgage');
     } else if (title === 'Конвертер валют') {
       navigate('/converter');
+    } else if (title === 'Подкасты') {
+      navigate('/podcasts');
     }
   };
 
