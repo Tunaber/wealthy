@@ -5,6 +5,7 @@ import FinanceCalendar from './Components/Calendar/FinanceCalendarPage';
 import MortgageCalculator from './Components/MortgageCalculator/MortgageCalculatorPage';
 import CurrencyConverter from './Components/CurrencyConverter/CurrencyConverter';
 import PodcastsPage from './Components/Podcasts/PodcastsPage';
+import NewsPage from './Components/News/NewsPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Route path="/mortgage" element={<MortgageCalculator />} />
       <Route path="/converter" element={<CurrencyConverter />} />
       <Route path="/podcasts" element={<PodcastsPage />} />
+      <Route path="/news" element={<NewsPage />} />
     </Routes>
   );
 }
