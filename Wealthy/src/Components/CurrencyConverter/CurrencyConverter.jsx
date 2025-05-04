@@ -90,19 +90,36 @@ const CurrencyConverter = () => {
   const fetchExchangeRate = async () => {
     setLoading(true);
     try {
-      // В итоговыом приложении здесь будет запрос к API
-      // Для демонстрации используем фиксу
-      const mockRates = {
-        USD: { EUR: 0.93, GBP: 0.79, JPY: 151.34, RUB: 92.45, CNY: 7.24, CHF: 0.91, AUD: 1.52 },
-        EUR: { USD: 1.07, GBP: 0.85, JPY: 162.45, RUB: 99.12, CNY: 7.76, CHF: 0.98, AUD: 1.63 },
+      const response = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
+      if (!response.ok) throw new Error('Ошибка сети');
+      
+      const data = await response.json();
+      const currencies = data.Valute;
+  
+      // Для рубля создаем искусственный объект с правильным форматом
+      const rub = {
+        Value: 1,
+        Nominal: 1
       };
-
-      // Имитация задержки API
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const rate = mockRates[fromCurrency]?.[toCurrency] || 1;
-      setExchangeRate(rate);
+  
+      const getCurrencyData = (currency) => {
+        if (currency === 'RUB') return rub;
+        const found = Object.values(currencies).find(v => v.CharCode === currency);
+        if (!found) throw new Error(`Валюта ${currency} не найдена`);
+        return found;
+      };
+  
+      const fromData = getCurrencyData(fromCurrency);
+      const toData = getCurrencyData(toCurrency);
+  
+      // Рассчет курса с учетом номинала
+      const fromRate = fromData.Value / fromData.Nominal;
+      const toRate = toData.Value / toData.Nominal;
+      const calculatedRate = fromRate / toRate;
+  
+      setExchangeRate(calculatedRate);
       setLastUpdated(new Date().toLocaleTimeString());
+      
     } catch (error) {
       console.error('Ошибка при получении курса:', error);
       setExchangeRate(1); // Fallback
