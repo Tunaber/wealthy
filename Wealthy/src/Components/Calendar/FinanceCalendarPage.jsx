@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Add, ArrowBackIos, ArrowForwardIos, Edit, Delete, ArrowBack } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { LineChart } from '@mui/x-charts/LineChart';
+import { PieChart } from '@mui/x-charts';
 import { useNavigate } from 'react-router-dom';
 
 const CalendarContainer = styled(Paper)(({ theme }) => ({
@@ -145,6 +145,16 @@ const ChartContainer = styled(Paper)(({ theme }) => ({
   boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.1)',
   backgroundColor: '#ffffff',
   marginTop: theme.spacing(3),
+  '& .MuiChartsAxis-tick': {
+    fill: theme.palette.text.secondary,
+  },
+  '& .MuiChartsAxis-line': {
+    stroke: theme.palette.divider,
+  },
+  '& .MuiChartsGrid-line': {
+    stroke: theme.palette.divider,
+    strokeDasharray: '4 4',
+  },
 }));
 
 const FinancialCalendar = () => {
@@ -282,37 +292,61 @@ const FinancialCalendar = () => {
   };
 
   const chartData = useMemo(() => {
-    const months = getLastSixMonths();
-    const incomeData = months.map((month) => {
-      const monthTransactions = transactions.filter((t) => {
-        const transactionDate = new Date(t.date);
-        return (
-          transactionDate.getFullYear() === month.getFullYear() &&
-          transactionDate.getMonth() === month.getMonth() &&
-          t.type === 'income'
-        );
-      });
-      return monthTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    // Фильтруем транзакции за текущий месяц
+    const monthTransactions = transactions.filter((t) => {
+      const transactionDate = new Date(t.date);
+      return transactionDate.getFullYear() === year && transactionDate.getMonth() === month;
     });
 
-    const expenseData = months.map((month) => {
-      const monthTransactions = transactions.filter((t) => {
-        const transactionDate = new Date(t.date);
-        return (
-          transactionDate.getFullYear() === month.getFullYear() &&
-          transactionDate.getMonth() === month.getMonth() &&
-          t.type === 'expense'
-        );
-      });
-      return monthTransactions.reduce((sum, t) => sum + t.amount, 0);
-    });
+    // Группируем доходы по категориям
+    const incomeData = monthTransactions
+      .filter((t) => t.type === 'income')
+      .reduce((acc, transaction) => {
+        if (!acc[transaction.category]) {
+          acc[transaction.category] = 0;
+        }
+        acc[transaction.category] += transaction.amount;
+        return acc;
+      }, {});
+
+    // Группируем расходы по категориям
+    const expenseData = monthTransactions
+      .filter((t) => t.type === 'expense')
+      .reduce((acc, transaction) => {
+        if (!acc[transaction.category]) {
+          acc[transaction.category] = 0;
+        }
+        acc[transaction.category] += transaction.amount;
+        return acc;
+      }, {});
+
+    // Преобразуем в формат для круговых диаграмм
+    const incomePieData = Object.entries(incomeData)
+      .map(([category, value]) => ({
+        id: category,
+        value: value,
+        label: category,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    const expensePieData = Object.entries(expenseData)
+      .map(([category, value]) => ({
+        id: category,
+        value: value,
+        label: category,
+      }))
+      .sort((a, b) => b.value - a.value);
 
     return {
-      months: months.map((m) => m.toLocaleString('default', { month: 'short' })),
-      income: incomeData,
-      expenses: expenseData,
+      incomePieData,
+      expensePieData,
+      totalIncome: Object.values(incomeData).reduce((sum, val) => sum + val, 0),
+      totalExpenses: Object.values(expenseData).reduce((sum, val) => sum + val, 0),
     };
-  }, [transactions]);
+  }, [transactions, currentDate]);
 
   const renderCalendar = () => {
     const year = currentDate.getFullYear();
@@ -451,27 +485,118 @@ const FinancialCalendar = () => {
 
       <ChartContainer>
         <Typography variant="h6" gutterBottom>
-          Динамика доходов и расходов
+          Распределение доходов и расходов за{' '}
+          {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
         </Typography>
-        <Box sx={{ height: 400 }}>
-          <LineChart
-            series={[
-              {
-                data: chartData.income,
-                label: 'Доходы',
-                color: '#10b981',
-              },
-              {
-                data: chartData.expenses,
-                label: 'Расходы',
-                color: '#ef4444',
-              },
-            ]}
-            xAxis={[{ scaleType: 'point', data: chartData.months }]}
-            yAxis={[{ label: 'Сумма (₽)' }]}
-            height={400}
-            margin={{ top: 20, bottom: 30, left: 40, right: 20 }}
-          />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: 4,
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            minHeight: 400,
+          }}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+              Доходы
+            </Typography>
+            {chartData.incomePieData.length > 0 ? (
+              <PieChart
+                series={[
+                  {
+                    data: chartData.incomePieData,
+                    innerRadius: 40,
+                    outerRadius: 120,
+                    paddingAngle: 2,
+                    cornerRadius: 5,
+                    highlightScope: { faded: 'global', highlighted: 'item' },
+                    faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
+                  },
+                ]}
+                width={400}
+                height={300}
+                slotProps={{
+                  legend: {
+                    direction: 'column',
+                    position: { vertical: 'middle', horizontal: 'right' },
+                    padding: 20,
+                    itemMarkWidth: 10,
+                    itemMarkHeight: 10,
+                    markGap: 5,
+                    itemGap: 10,
+                    labelStyle: {
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                    },
+                  },
+                }}
+              />
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Нет данных о доходах
+              </Typography>
+            )}
+          </Box>
+
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+              Расходы
+            </Typography>
+            {chartData.expensePieData.length > 0 ? (
+              <PieChart
+                series={[
+                  {
+                    data: chartData.expensePieData,
+                    innerRadius: 40,
+                    outerRadius: 120,
+                    paddingAngle: 2,
+                    cornerRadius: 5,
+                    highlightScope: { faded: 'global', highlighted: 'item' },
+                    faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
+                  },
+                ]}
+                width={400}
+                height={300}
+                slotProps={{
+                  legend: {
+                    direction: 'column',
+                    position: { vertical: 'middle', horizontal: 'right' },
+                    padding: { left: 40, right: 20 },
+                    itemMarkWidth: 10,
+                    itemMarkHeight: 10,
+                    markGap: 5,
+                    itemGap: 10,
+                    labelStyle: {
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                    },
+                  },
+                }}
+              />
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Нет данных о расходах
+              </Typography>
+            )}
+          </Box>
         </Box>
       </ChartContainer>
 
