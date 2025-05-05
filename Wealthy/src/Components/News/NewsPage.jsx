@@ -32,7 +32,7 @@ const NewsContainer = styled(Paper)(({ theme }) => ({
   borderRadius: '16px',
   boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.1)',
   backgroundColor: '#ffffff',
-  width: '800px',
+  width: '900px',
   margin: '0 auto',
 }));
 
@@ -67,6 +67,7 @@ const NewsPage = () => {
     { id: 'stocks', label: 'Акции', icon: <ShowChartIcon /> },
     { id: 'crypto', label: 'Криптовалюта', icon: <MonetizationOnIcon /> },
     { id: 'banking', label: 'Банки', icon: <SavingsIcon /> },
+    { id: 'favorites', label: 'Избранное', icon: <BookmarkIcon /> },
   ];
 
   useEffect(() => {
@@ -83,7 +84,8 @@ const NewsPage = () => {
               'Федеральная резервная система США приняла решение сохранить базовую процентную ставку на уровне 5,25-5,5% годовых.',
             category: 'banking',
             date: '2024-03-20',
-            image: '/fed-news.jpg',
+            image:
+              'https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
             source: 'Financial Times',
             readTime: '3 мин',
           },
@@ -94,7 +96,8 @@ const NewsPage = () => {
               'Курс биткоина впервые превысил отметку в $70 000 на фоне роста интереса институциональных инвесторов.',
             category: 'crypto',
             date: '2024-03-15',
-            image: '/bitcoin-news.jpg',
+            image:
+              'https://images.unsplash.com/photo-1621761191319-c6fb62004040?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
             source: 'CoinDesk',
             readTime: '4 мин',
           },
@@ -105,7 +108,8 @@ const NewsPage = () => {
               'Акции компании Tesla подскочили после публикации квартального отчета, превысившего ожидания аналитиков.',
             category: 'stocks',
             date: '2024-03-10',
-            image: '/tesla-news.jpg',
+            image:
+              'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
             source: 'Bloomberg',
             readTime: '5 мин',
           },
@@ -116,7 +120,8 @@ const NewsPage = () => {
               'Европейский центральный банк сигнализирует о возможном смягчении монетарной политики уже в июне.',
             category: 'banking',
             date: '2024-03-05',
-            image: '/ecb-news.jpg',
+            image:
+              'https://images.unsplash.com/photo-1554224154-26032ffc0d07?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
             source: 'Reuters',
             readTime: '4 мин',
           },
@@ -127,7 +132,8 @@ const NewsPage = () => {
               'Индекс S&P 500 впервые в истории превысил отметку 5200 пунктов на фоне роста технологических компаний.',
             category: 'stocks',
             date: '2024-02-28',
-            image: '/sp500-news.jpg',
+            image:
+              'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
             source: 'Wall Street Journal',
             readTime: '6 мин',
           },
@@ -138,7 +144,8 @@ const NewsPage = () => {
               'Разработчики Ethereum анонсировали дату следующего крупного обновления сети — Dencun.',
             category: 'crypto',
             date: '2024-02-25',
-            image: '/ethereum-news.jpg',
+            image:
+              'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
             source: 'Decrypt',
             readTime: '7 мин',
           },
@@ -177,7 +184,12 @@ const NewsPage = () => {
     const matchesSearch =
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.summary.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+    const matchesCategory =
+      activeCategory === 'all'
+        ? true
+        : activeCategory === 'favorites'
+        ? bookmarked.includes(item.id)
+        : item.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -295,7 +307,7 @@ const NewsPage = () => {
                         <Box
                           sx={{
                             display: 'flex',
-                            justifyContent: 'space-between',
+                            justifyContent: 'flex-start',
                             alignItems: 'center',
                             mt: 'auto',
                           }}
@@ -311,15 +323,6 @@ const NewsPage = () => {
                               <BookmarkBorderIcon />
                             )}
                           </IconButton>
-
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button size="small" startIcon={<ShareIcon />}>
-                              Поделиться
-                            </Button>
-                            <Button size="small" variant="contained">
-                              Читать
-                            </Button>
-                          </Box>
                         </Box>
                       </CardContent>
                     </NewsCard>
