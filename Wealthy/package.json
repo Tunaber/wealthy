@@ -16,7 +16,6 @@
     "@mui/material": "^7.0.1",
     "@mui/x-charts": "^7.28.0",
     "date-fns": "^4.1.0",
-    "motion": "^12.9.4",
     "react": "^19.1.0",
     "react-big-calendar": "^1.18.0",
     "react-dom": "^19.1.0",
