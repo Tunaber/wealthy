@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -197,40 +197,79 @@ const FinancialCalendar = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const handleDateClick = (date) => {
-    setSelectedDate(date);
-    setNewTransaction((prev) => ({
-      ...prev,
-      date: date,
-    }));
-    setEditingTransaction(null);
-    setModalOpen(true);
-  };
+const handleDateClick = (date) => {
+  const normalizedDate = new Date(date);  
+  normalizedDate.setHours(12, 0, 0, 0);  
+  
+  setSelectedDate(normalizedDate);
+  setNewTransaction((prev) => ({
+    ...prev,
+    date: normalizedDate,
+  }));
+  setEditingTransaction(null);
+  setModalOpen(true);
+};
 
-  const handleTransactionSubmit = () => {
-    if (!newTransaction.amount || !newTransaction.category) return;
+const handleTransactionSubmit = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Токен отсутствует');
 
-    const transaction = {
-      ...newTransaction,
-      id: editingTransaction ? editingTransaction.id : Date.now(),
-      amount: parseFloat(newTransaction.amount),
-    };
-
-    if (editingTransaction) {
-      setTransactions(transactions.map((t) => (t.id === editingTransaction.id ? transaction : t)));
-    } else {
-      setTransactions([...transactions, transaction]);
+    // Преобразование строки в число (заменяем запятую на точку)
+    const parsedAmount = parseFloat(newTransaction.amount.replace(',', '.'));
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('Введите корректную сумму');
+      return;
     }
 
+    if (!newTransaction.category) {
+      alert('Выберите категорию');
+      return;
+    }
+
+    const method = editingTransaction ? 'PUT' : 'POST';
+    const url = editingTransaction
+      ? `/api/transactions/${editingTransaction.id}`
+      : '/api/transactions';
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        type: newTransaction.type,
+        category: newTransaction.category,
+        amount: parsedAmount,
+        date: newTransaction.date.toISOString(),
+      }),
+    });
+
+    if (!response.ok) throw new Error('Ошибка сохранения');
+
+    const data = await response.json();
+
+    setTransactions((prev) =>
+      editingTransaction
+        ? prev.map((t) => (t.id === data.id ? data : t))
+        : [...prev, data]
+    );
+
     setModalOpen(false);
+    setEditingTransaction(null);
     setNewTransaction({
       type: 'expense',
       category: '',
       amount: '',
       date: null,
     });
-    setEditingTransaction(null);
-  };
+  } catch (error) {
+    console.error('Ошибка:', error);
+    alert('Произошла ошибка при сохранении транзакции');
+  }
+};
+
 
   const handleEditTransaction = (transaction) => {
     setEditingTransaction(transaction);
@@ -248,38 +287,60 @@ const FinancialCalendar = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    setTransactions(transactions.filter((t) => t.id !== transactionToDelete.id));
+const handleDeleteConfirm = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(
+      `/api/transactions/${transactionToDelete.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) throw new Error('Ошибка удаления');
+    
+    setTransactions(prev => 
+      prev.filter(t => t.id !== transactionToDelete.id)
+    );
     setDeleteDialogOpen(false);
-    setTransactionToDelete(null);
-  };
+  } catch (error) {
+    console.error('Ошибка:', error);
+  }
+};
 
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setTransactionToDelete(null);
   };
 
-  const calculateMonthlyStats = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+const calculateMonthlyStats = () => {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
 
-    const monthlyTransactions = transactions.filter((t) => {
-      const transactionDate = new Date(t.date);
-      return transactionDate.getFullYear() === year && transactionDate.getMonth() === month;
-    });
+  const monthlyTransactions = transactions.filter((t) => {
+    if (!t.date) return false;
+    const transactionDate = new Date(t.date);
+    return (
+      transactionDate.getFullYear() === year &&
+      transactionDate.getMonth() === month
+    );
+  });
 
-    const income = monthlyTransactions
-      .filter((t) => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+  const income = monthlyTransactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    const expenses = monthlyTransactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+  const expenses = monthlyTransactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    const balance = income - expenses;
+  const balance = income - expenses;
 
-    return { income, expenses, balance };
-  };
+  return { income, expenses, balance };
+};
 
   const getLastSixMonths = () => {
     const months = [];
@@ -367,9 +428,15 @@ const FinancialCalendar = () => {
       const date = new Date(year, month, day);
       const isToday = date.toDateString() === today.toDateString();
 
-      const dayTransactions = transactions.filter(
-        (t) => t.date && new Date(t.date).toDateString() === date.toDateString(),
-      );
+      const dayTransactions = transactions.filter((t) => {
+        if (!t.date) return false;
+        const transactionDate = new Date(t.date);
+        return (
+          transactionDate.getDate() === day &&
+          transactionDate.getMonth() === month &&
+          transactionDate.getFullYear() === year
+        );
+      });
 
       days.push(
         <CalendarDayCell
@@ -384,13 +451,27 @@ const FinancialCalendar = () => {
           {dayTransactions.map((t) => (
             <TransactionItem key={t.id} type={t.type} onClick={(e) => e.stopPropagation()}>
               <TransactionText>
-                {t.category}: {t.amount} ₽
+                {t.category}: {Number(t.amount).toLocaleString()} ₽
               </TransactionText>
               <TransactionActions>
-                <IconButton size="small" onClick={() => handleEditTransaction(t)} color="primary">
+                <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditTransaction(t);
+                    }}
+                    color="primary"
+                  >
                   <Edit fontSize="small" />
                 </IconButton>
-                <IconButton size="small" onClick={() => handleDeleteClick(t)} color="error">
+                <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(t);
+                      }}
+                      color="error"
+                    >
                   <Delete fontSize="small" />
                 </IconButton>
               </TransactionActions>
@@ -402,6 +483,45 @@ const FinancialCalendar = () => {
 
     return days;
   };
+
+
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (!token) navigate('/login');
+}, [navigate]);
+
+  useEffect(() => {
+  const loadTransactions = async () => {
+    try {
+      const month = currentDate.getMonth() + 1;
+      const year = currentDate.getFullYear();
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(
+        `/api/transactions?month=${month}&year=${year}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) throw new Error('Ошибка загрузки');
+      const data = await response.json();
+      
+       const normalizedTransactions = data.map(t => ({
+        ...t,
+        date: t.date ? new Date(t.date) : null
+      }));
+
+      setTransactions(normalizedTransactions);
+    } catch (error) {
+      console.error('Ошибка:', error);
+    }
+  };
+  
+  loadTransactions();
+}, [currentDate]);
 
   React.useEffect(() => {
     const handleEscKey = (event) => {

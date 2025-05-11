@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,6 +11,9 @@ import {
   Checkbox,
   FormControlLabel,
   styled,
+  Snackbar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Visibility,
@@ -18,10 +21,8 @@ import {
   Person,
   Email,
   Lock,
-  Google,
-  Apple,
-  Facebook,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -33,8 +34,12 @@ const AuthContainer = styled(Paper)(({ theme }) => ({
 }));
 
 const AuthPage = () => {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,8 +47,14 @@ const AuthPage = () => {
     remember: false,
   });
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) navigate('/');
+  }, [navigate]);
+
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
+    setError(null);
   };
 
   const handleInputChange = (e) => {
@@ -54,11 +65,75 @@ const AuthPage = () => {
     });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Обработка отправки формы
-    console.log(isLogin ? 'Вход' : 'Регистрация', formData);
+  const validateForm = () => {
+    if (!isLogin && !formData.name.trim()) {
+      setError('Пожалуйста, введите имя');
+      return false;
+    }
+    if (!formData.email.match(/^\S+@\S+\.\S+$/)) {
+      setError('Введите корректный email');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setError('Пароль должен содержать минимум 6 символов');
+      return false;
+    }
+    return true;
   };
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError(null);
+
+  if (!validateForm()) return;
+
+  setLoading(true);
+  try {
+    const url = isLogin ? '/api/login' : '/api/register';
+    const body = isLogin
+      ? { email: formData.email, password: formData.password }
+      : {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        };
+
+    const fullUrl =
+      process.env.NODE_ENV === 'development'
+        ? `http://localhost:5000${url}`
+        : url;
+
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Ошибка сервера');
+    }
+
+    if (!data.token) {
+      throw new Error('Ошибка аутентификации');
+    }
+
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    setSuccess(isLogin ? 'Успешный вход!' : 'Регистрация завершена!');
+    setTimeout(() => {
+      navigate('/', { replace: true });
+    }, 1500);
+
+  } catch (err) {
+    console.error('Request error:', err);
+    setError(err.message || 'Произошла ошибка');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Box
@@ -130,7 +205,10 @@ const AuthPage = () => {
               ),
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                  <IconButton 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    edge="end"
+                  >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -170,14 +248,22 @@ const AuthPage = () => {
             variant="contained"
             size="large"
             type="submit"
+            disabled={loading}
             sx={{
               py: 1.5,
               mb: 3,
               borderRadius: '8px',
               fontSize: '1rem',
+              position: 'relative',
             }}
           >
-            {isLogin ? 'Войти' : 'Зарегистрироваться'}
+            {loading ? (
+              <CircularProgress size={24} sx={{ color: 'white' }} />
+            ) : isLogin ? (
+              'Войти'
+            ) : (
+              'Зарегистрироваться'
+            )}
           </Button>
 
           <Typography variant="body2" align="center">
@@ -196,6 +282,27 @@ const AuthPage = () => {
             </Button>
           </Typography>
         </Box>
+
+        {/* Уведомления об ошибках и успехе */}
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={() => setError(null)}
+        >
+          <Alert severity="error" sx={{ width: '100%' }}>
+            {error}
+          </Alert>
+        </Snackbar>
+
+        <Snackbar
+          open={!!success}
+          autoHideDuration={3000}
+          onClose={() => setSuccess(null)}
+        >
+          <Alert severity="success" sx={{ width: '100%' }}>
+            {success}
+          </Alert>
+        </Snackbar>
       </AuthContainer>
     </Box>
   );
