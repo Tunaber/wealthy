@@ -6,6 +6,7 @@ import MortgageCalculator from './Components/MortgageCalculator/MortgageCalculat
 import CurrencyConverter from './Components/CurrencyConverter/CurrencyConverter';
 import PodcastsPage from './Components/Podcasts/PodcastsPage';
 import NewsPage from './Components/News/NewsPage';
+import AuthPage from './Components/Auth/RegLogPage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <Route path="/converter" element={<CurrencyConverter />} />
       <Route path="/podcasts" element={<PodcastsPage />} />
       <Route path="/news" element={<NewsPage />} />
+      <Route path="/auth" element={<AuthPage />} />
     </Routes>
   );
 }
