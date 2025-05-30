@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import MainPage from './Components/MainPage/MainPage';
 import FinanceCalendar from './Components/Calendar/FinanceCalendarPage';
 import MortgageCalculator from './Components/MortgageCalculator/MortgageCalculatorPage';
@@ -22,16 +22,29 @@ const isTokenValid = () => {
   }
 };
 
-
 function App() {
-  const isAuthenticated = isTokenValid();
+  const [isAuthenticated, setIsAuthenticated] = useState(isTokenValid());
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-  }, [isAuthenticated]);
+    const checkAuth = () => {
+      const authStatus = isTokenValid();
+      setIsAuthenticated(authStatus);
+      if (!authStatus && window.location.pathname !== '/auth') {
+        navigate('/auth', { replace: true });
+      }
+    };
+
+    checkAuth();
+    
+    // Слушаем изменения в localStorage
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [navigate]);
 
   return (
     <Routes>
@@ -41,7 +54,7 @@ function App() {
       />
       <Route 
         path="/auth" 
-        element={!isAuthenticated ? <AuthPage /> : <Navigate to="/" replace />} 
+        element={!isAuthenticated ? <AuthPage onLogin={() => setIsAuthenticated(true)} /> : <Navigate to="/" replace />} 
       />
       <Route 
         path="/calendar" 

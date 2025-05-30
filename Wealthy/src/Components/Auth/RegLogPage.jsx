@@ -31,9 +31,10 @@ const AuthContainer = styled(Paper)(({ theme }) => ({
   backgroundColor: '#ffffff',
   maxWidth: '500px',
   margin: '0 auto',
+  transition: 'all 0.3s ease',
 }));
 
-const AuthPage = () => {
+const AuthPage = ({ onAuthSuccess }) => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -47,14 +48,10 @@ const AuthPage = () => {
     remember: false,
   });
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) navigate('/');
-  }, [navigate]);
-
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setError(null);
+    setSuccess(null);
   };
 
   const handleInputChange = (e) => {
@@ -81,59 +78,72 @@ const AuthPage = () => {
     return true;
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError(null);
-
-  if (!validateForm()) return;
-
-  setLoading(true);
-  try {
-    const url = isLogin ? '/api/login' : '/api/register';
-    const body = isLogin
-      ? { email: formData.email, password: formData.password }
-      : {
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        };
-
-    const fullUrl =
-      process.env.NODE_ENV === 'development'
-        ? `http://localhost:5000${url}`
-        : url;
-
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Ошибка сервера');
-    }
-
-    if (!data.token) {
-      throw new Error('Ошибка аутентификации');
-    }
-
+  const handleAuthSuccess = (data) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
+    
+    if (formData.remember) {
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+    }
 
     setSuccess(isLogin ? 'Успешный вход!' : 'Регистрация завершена!');
-    setTimeout(() => {
-      navigate('/', { replace: true });
-    }, 1500);
+    if (onAuthSuccess) {
+      onAuthSuccess();
+    }
+    navigate('/', { replace: true });
+  };
 
-  } catch (err) {
-    console.error('Request error:', err);
-    setError(err.message || 'Произошла ошибка');
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!validateForm()) return;
+
+    setLoading(true);
+    
+    try {
+      const endpoint = isLogin ? '/api/login' : '/api/register';
+      const payload = isLogin
+        ? { email: formData.email, password: formData.password }
+        : {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+          };
+
+      const response = await fetch(
+        process.env.NODE_ENV === 'development' 
+          ? `http://localhost:5000${endpoint}` 
+          : endpoint,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'include',
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка сервера');
+      }
+
+      if (!data.token) {
+        throw new Error('Ошибка аутентификации: токен не получен');
+      }
+
+      handleAuthSuccess(data);
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError(err.message || 'Произошла ошибка при авторизации');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Box
@@ -146,12 +156,12 @@ const AuthPage = () => {
         p: 3,
       }}
     >
-      <AuthContainer>
+      <AuthContainer elevation={3}>
         <Typography variant="h4" gutterBottom sx={{ textAlign: 'center', mb: 4 }}>
           {isLogin ? 'Вход в аккаунт' : 'Создать аккаунт'}
         </Typography>
 
-        <Box component="form" onSubmit={handleSubmit}>
+        <Box component="form" onSubmit={handleSubmit} noValidate>
           {!isLogin && (
             <TextField
               fullWidth
@@ -160,6 +170,7 @@ const AuthPage = () => {
               value={formData.name}
               onChange={handleInputChange}
               margin="normal"
+              required
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -179,6 +190,7 @@ const AuthPage = () => {
             value={formData.email}
             onChange={handleInputChange}
             margin="normal"
+            required
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -197,6 +209,7 @@ const AuthPage = () => {
             value={formData.password}
             onChange={handleInputChange}
             margin="normal"
+            required
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -205,8 +218,8 @@ const AuthPage = () => {
               ),
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton 
-                    onClick={() => setShowPassword(!showPassword)} 
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
                     edge="end"
                   >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -266,6 +279,8 @@ const AuthPage = () => {
             )}
           </Button>
 
+          <Divider sx={{ my: 2 }} />
+
           <Typography variant="body2" align="center">
             {isLogin ? 'Ещё нет аккаунта? ' : 'Уже есть аккаунт? '}
             <Button
@@ -277,17 +292,18 @@ const AuthPage = () => {
                 fontSize: 'inherit',
                 verticalAlign: 'baseline',
               }}
+              disabled={loading}
             >
-              {isLogin ? 'Зарегистрироваться' : 'Войти'}
+              {isLogin ? 'Создать аккаунт' : 'Войти'}
             </Button>
           </Typography>
         </Box>
 
-        {/* Уведомления об ошибках и успехе */}
         <Snackbar
           open={!!error}
           autoHideDuration={6000}
           onClose={() => setError(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="error" sx={{ width: '100%' }}>
             {error}
@@ -298,6 +314,7 @@ const AuthPage = () => {
           open={!!success}
           autoHideDuration={3000}
           onClose={() => setSuccess(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="success" sx={{ width: '100%' }}>
             {success}

@@ -5,7 +5,6 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // Инициализация Express
 const app = express();
