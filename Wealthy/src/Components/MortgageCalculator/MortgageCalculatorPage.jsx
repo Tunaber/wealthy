@@ -12,7 +12,6 @@ import {
   Grid,
   InputAdornment,
   styled,
-  IconButton,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -21,7 +20,6 @@ import {
   Home,
   TrendingUp,
   Payment,
-  ArrowBack,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -104,26 +102,7 @@ const MortgageCalculator = () => {
   };
 
   return (
-    <Box sx={{ padding: 3, position: 'relative' }}>
-      <IconButton
-        onClick={() => navigate('/')}
-        sx={{
-          position: 'absolute',
-          left: 20,
-          top: 20,
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 1)',
-          },
-        }}
-      >
-        <ArrowBack />
-      </IconButton>
-
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>
-        Калькулятор ипотеки
-      </Typography>
-
+    <Box className="fin-tool-page fin-mortgage-page">
       <CalculatorContainer>
         <SectionTitle variant="h5">
           <Home fontSize="medium" /> Параметры недвижимости

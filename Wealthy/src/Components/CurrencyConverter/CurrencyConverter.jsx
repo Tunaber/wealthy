@@ -22,7 +22,6 @@ import CurrencyPoundIcon from '@mui/icons-material/CurrencyPound';
 import CurrencyYenIcon from '@mui/icons-material/CurrencyYen';
 import CurrencyRubleIcon from '@mui/icons-material/CurrencyRuble';
 import { useNavigate } from 'react-router-dom';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const ConverterContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -59,6 +58,7 @@ const CurrencyConverter = () => {
   const [exchangeRate, setExchangeRate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [error, setError] = useState('');
 
   const currencies = [
     { code: 'USD', name: 'Доллар США' },
@@ -75,6 +75,7 @@ const CurrencyConverter = () => {
 
   useEffect(() => {
     fetchExchangeRate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromCurrency, toCurrency]);
 
   useEffect(() => {
@@ -89,40 +90,25 @@ const CurrencyConverter = () => {
 
   const fetchExchangeRate = async () => {
     setLoading(true);
+    setError('');
     try {
-      const response = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
-      if (!response.ok) throw new Error('Ошибка сети');
+      const response = await fetch(
+        `/api/rates?from=${fromCurrency}&to=${toCurrency}`
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка при получении данных');
+      }
       
       const data = await response.json();
-      const currencies = data.Valute;
-  
-      // Для рубля создаем искусственный объект с правильным форматом
-      const rub = {
-        Value: 1,
-        Nominal: 1
-      };
-  
-      const getCurrencyData = (currency) => {
-        if (currency === 'RUB') return rub;
-        const found = Object.values(currencies).find(v => v.CharCode === currency);
-        if (!found) throw new Error(`Валюта ${currency} не найдена`);
-        return found;
-      };
-  
-      const fromData = getCurrencyData(fromCurrency);
-      const toData = getCurrencyData(toCurrency);
-  
-      // Рассчет курса с учетом номинала
-      const fromRate = fromData.Value / fromData.Nominal;
-      const toRate = toData.Value / toData.Nominal;
-      const calculatedRate = fromRate / toRate;
-  
-      setExchangeRate(calculatedRate);
-      setLastUpdated(new Date().toLocaleTimeString());
+      setExchangeRate(data.rate);
+      setLastUpdated(new Date(data.lastUpdated).toLocaleTimeString());
       
-    } catch (error) {
-      console.error('Ошибка при получении курса:', error);
-      setExchangeRate(1); // Fallback
+    } catch (err) {
+      console.error('Ошибка при получении курса:', err);
+      setError(err.message);
+      setExchangeRate(1);
     } finally {
       setLoading(false);
     }
@@ -136,24 +122,7 @@ const CurrencyConverter = () => {
   const convertedAmount = exchangeRate ? (amount * exchangeRate).toFixed(4) : '...';
 
   return (
-    <Box sx={{ padding: 3, position: 'relative' }}>
-      <IconButton
-        onClick={() => navigate('/')}
-        sx={{
-          position: 'absolute',
-          left: 20,
-          top: 20,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          zIndex: 10,
-          '&:hover': { backgroundColor: 'rgba(255,255,255,1)' },
-        }}
-      >
-        <ArrowBackIcon />
-      </IconButton>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>
-        Конвертер валют
-      </Typography>
-
+    <Box className="fin-tool-page fin-converter-page">
       <ConverterContainer>
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={5}>
@@ -240,6 +209,13 @@ const CurrencyConverter = () => {
           <Typography variant="body2" color="text.secondary">
             Курс: 1 {fromCurrency} = {exchangeRate?.toFixed(6) || '...'} {toCurrency}
           </Typography>
+          
+          {error && (
+            <Typography color="error" variant="body2" mt={1}>
+              Ошибка: {error}
+            </Typography>
+          )}
+
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
               <CircularProgress size={20} sx={{ mr: 1 }} />

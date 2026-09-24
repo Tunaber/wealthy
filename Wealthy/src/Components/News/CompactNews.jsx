@@ -18,10 +18,13 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import ShareIcon from '@mui/icons-material/Share';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import SavingsIcon from '@mui/icons-material/Savings';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 const NewsContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -38,6 +41,7 @@ const CompactNews = () => {
   const [bookmarked, setBookmarked] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [expandedNewsId, setExpandedNewsId] = useState(null);
+  const [toast, setToast] = useState('');
 
   const categories = [
     { id: 'all', label: 'Все', icon: <TrendingUpIcon fontSize="small" /> },
@@ -121,12 +125,39 @@ const CompactNews = () => {
   }, []);
 
   const toggleBookmark = (id) => {
-    if (bookmarked.includes(id)) {
-      setBookmarked(bookmarked.filter((item) => item !== id));
-    } else {
-      setBookmarked([...bookmarked, id]);
-    }
+    const isBookmarked = bookmarked.includes(String(id));
+    setBookmarked((prev) =>
+      isBookmarked ? prev.filter((item) => String(item) !== String(id)) : [...prev, String(id)]
+    );
+    fetch(`/api/bookmarks/${id}`, { method: isBookmarked ? 'DELETE' : 'POST' }).catch((error) =>
+      console.error('Не удалось обновить закладку:', error)
+    );
   };
+
+  const shareNews = async (item) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/news#${item.id}`);
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = `${window.location.origin}/news#${item.id}`;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      document.body.removeChild(area);
+    }
+    setToast('Ссылка на статью скопирована');
+  };
+
+  useEffect(() => {
+    fetch('/api/bookmarks')
+      .then((response) => response.json())
+      .then((data) => {
+        if (Array.isArray(data)) setBookmarked(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const toggleExpand = (id) => {
     setExpandedNewsId(expandedNewsId === id ? null : id);
@@ -230,9 +261,9 @@ const CompactNews = () => {
                         e.stopPropagation();
                         toggleBookmark(item.id);
                       }}
-                      color={bookmarked.includes(item.id) ? 'primary' : 'default'}
+                      color={bookmarked.includes(String(item.id)) ? 'primary' : 'default'}
                     >
-                      {bookmarked.includes(item.id) ? (
+                      {bookmarked.includes(String(item.id)) ? (
                         <BookmarkIcon fontSize="small" />
                       ) : (
                         <BookmarkBorderIcon fontSize="small" />
@@ -250,7 +281,15 @@ const CompactNews = () => {
                         width: '100%',
                       }}
                     >
-                      <Typography variant="body2">{item.summary}</Typography>
+                      <Typography variant="body2" sx={{ mb: 1.5 }}>{item.summary}</Typography>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button size="small" startIcon={<ShareIcon />} onClick={() => shareNews(item)}>
+                          Поделиться
+                        </Button>
+                        <Button size="small" variant="contained" onClick={() => toggleBookmark(item.id)}>
+                          {bookmarked.includes(String(item.id)) ? 'Убрать' : 'Сохранить'}
+                        </Button>
+                      </Box>
                     </Box>
                   )}
                 </ListItem>
@@ -266,6 +305,12 @@ const CompactNews = () => {
           </Typography>
         )}
       </NewsContainer>
+
+      <Snackbar open={Boolean(toast)} autoHideDuration={2500} onClose={() => setToast('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" variant="filled" onClose={() => setToast('')}>
+          {toast}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

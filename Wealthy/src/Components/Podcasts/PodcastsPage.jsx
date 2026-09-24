@@ -13,7 +13,6 @@ import {
   ListItemText,
   Avatar,
   Chip,
-  styled,
 } from '@mui/material';
 import {
   PlayArrow,
@@ -25,14 +24,11 @@ import {
   FavoriteBorder,
   Share,
   QueueMusic,
-  MoreVert,
-  ArrowBack,
 } from '@mui/icons-material';
 import firstAudio from '../../assets/PodcastAudio/first.mp3';
 import secondAudio from '../../assets/PodcastAudio/second.mp3';
 import threeAudio from '../../assets/PodcastAudio/three.mp3';
 import fourAudio from '../../assets/PodcastAudio/four.mp3';
-import { useNavigate } from 'react-router-dom';
 import CompactNews from '../News/CompactNews';
 
 const PodcastPage = () => {
@@ -41,17 +37,18 @@ const PodcastPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [favorites, setFavorites] = useState([]);
+  const [volume, setVolume] = useState(70);
   const audioRef = useRef(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPodcasts = async () => {
       try {
         const mockPodcasts = [
-          { id: 1, title: 'Подкаст 1', audio: firstAudio },
-          { id: 2, title: 'Подкаст 2', audio: secondAudio },
-          { id: 3, title: 'Подкаст 3', audio: threeAudio },
-          { id: 4, title: 'Подкаст 4', audio: fourAudio },
+          { id: 1, title: 'Умный бюджет: с чего начать', audio: firstAudio, category: 'ПЛАНИРОВАНИЕ', color: '#d9edbd' },
+          { id: 2, title: 'Деньги должны работать', audio: secondAudio, category: 'ИНВЕСТИЦИИ', color: '#dddafa' },
+          { id: 3, title: 'Копить легко — это привычка', audio: threeAudio, category: 'НАКОПЛЕНИЯ', color: '#f6e3bd' },
+          { id: 4, title: 'Первые шаги к финансовой свободе', audio: fourAudio, category: 'ФИНАНСОВАЯ ГРАМОТНОСТЬ', color: '#f2d5d7' },
         ];
 
         setPodcasts(mockPodcasts);
@@ -68,88 +65,96 @@ const PodcastPage = () => {
     setCurrentTime(event.target.currentTime);
   };
 
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
+    if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      try {
+        await audioRef.current.play();
+      } catch (error) {
+        console.error('Не удалось запустить аудио:', error);
+        return;
+      }
     }
     setIsPlaying(!isPlaying);
   };
 
+  const playPodcast = (podcast) => {
+    setCurrentPodcast(podcast);
+    setIsPlaying(true);
+    setCurrentTime(0);
+    window.setTimeout(() => {
+      if (audioRef.current) audioRef.current.play().catch(() => setIsPlaying(false));
+    }, 0);
+  };
+
   const handleNext = () => {
+    if (!currentPodcast || !podcasts.length) return;
     const currentIndex = podcasts.findIndex((podcast) => podcast.id === currentPodcast.id);
     const nextIndex = (currentIndex + 1) % podcasts.length;
-    setCurrentPodcast(podcasts[nextIndex]);
-    audioRef.current.src = podcasts[nextIndex].audio;
-    setCurrentTime(0);
-    setIsPlaying(true);
+    playPodcast(podcasts[nextIndex]);
   };
 
   const handlePrevious = () => {
+    if (!currentPodcast || !podcasts.length) return;
     const currentIndex = podcasts.findIndex((podcast) => podcast.id === currentPodcast.id);
     const previousIndex = (currentIndex - 1 + podcasts.length) % podcasts.length;
-    setCurrentPodcast(podcasts[previousIndex]);
-    audioRef.current.src = podcasts[previousIndex].audio;
-    setCurrentTime(0);
-    setIsPlaying(true);
+    playPodcast(podcasts[previousIndex]);
   };
 
-  const handleVolumeChange = (event, newValue) => {};
+  const formatTime = (value) => `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`;
 
   return (
-    <Box sx={{ padding: 3, position: 'relative' }}>
-      <IconButton
-        onClick={() => navigate('/')}
-        sx={{
-          position: 'absolute',
-          left: 20,
-          top: 20,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          zIndex: 10,
-          '&:hover': { backgroundColor: 'rgba(255,255,255,1)' },
-        }}
-      >
-        <ArrowBack />
-      </IconButton>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>
-        Финансовые подкасты
-      </Typography>
+    <Box className="fin-tool-page fin-podcasts-page">
+      <Paper className="fin-podcast-feature" elevation={0}>
+        <div className="fin-podcast-feature__copy">
+          <Chip label="WELPHY AUDIO · ПОДБОРКА НЕДЕЛИ" />
+          <Typography variant="h4">Финансовая грамотность — это звучит.</Typography>
+          <Typography variant="body2">Короткие выпуски с идеями, которые помогают спокойнее обращаться с деньгами.</Typography>
+          <Button variant="contained" startIcon={<PlayArrow />} onClick={() => currentPodcast && playPodcast(currentPodcast)}>Слушать подборку</Button>
+        </div>
+        <div className="fin-podcast-feature__art" aria-hidden="true"><span>W</span><i /><i /><i /><i /><i /></div>
+      </Paper>
 
-      <PodcastContainer>
-        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-          Популярные выпуски
-        </Typography>
+      <div className="fin-podcast-layout">
+        <Paper className="fin-podcast-library" elevation={0}>
+          <div className="fin-podcast-section-heading"><div><Typography variant="h6">Популярные выпуски</Typography><Typography variant="body2">Выберите выпуск и нажмите play</Typography></div><Chip label={`${podcasts.length} выпуска`} size="small" /></div>
+          <List className="fin-podcast-list">
+            {podcasts.map((podcast, index) => (
+              <ListItem key={podcast.id} disablePadding className={`fin-podcast-row${currentPodcast?.id === podcast.id ? ' is-current' : ''}`} secondaryAction={
+                <div className="fin-podcast-row__actions">
+                  <IconButton aria-label={favorites.includes(podcast.id) ? 'Убрать из избранного' : 'В избранное'} onClick={() => setFavorites((previous) => previous.includes(podcast.id) ? previous.filter((id) => id !== podcast.id) : [...previous, podcast.id])}>
+                    {favorites.includes(podcast.id) ? <Favorite color="error" /> : <FavoriteBorder />}
+                  </IconButton>
+                  <IconButton className="fin-podcast-row__play" aria-label={`Слушать: ${podcast.title}`} onClick={() => currentPodcast?.id === podcast.id ? handlePlayPause() : playPodcast(podcast)}>
+                    {currentPodcast?.id === podcast.id && isPlaying ? <Pause /> : <PlayArrow />}
+                  </IconButton>
+                </div>
+              }>
+                <ListItemAvatar><Avatar className="fin-podcast-avatar" sx={{ bgcolor: podcast.color }}>{String(index + 1).padStart(2, '0')}</Avatar></ListItemAvatar>
+                <ListItemText primary={podcast.title} secondary={<Chip className="fin-podcast-category" label={podcast.category} size="small" />} />
+              </ListItem>
+            ))}
+          </List>
+          <audio ref={audioRef} src={currentPodcast?.audio} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnded={handleNext} />
 
-        <List>
-          {podcasts.map((podcast) => (
-            <ListItem key={podcast.id}>
-              <ListItemAvatar>
-                <Avatar>{podcast.id}</Avatar>
-              </ListItemAvatar>
-              <ListItemText primary={podcast.title} />
-            </ListItem>
-          ))}
-        </List>
+          {currentPodcast && <div className="fin-audio-player">
+            <div className="fin-audio-player__identity"><Avatar sx={{ bgcolor: currentPodcast.color }}><QueueMusic /></Avatar><div><strong>{currentPodcast.title}</strong><span>Welphy Original · Финансы</span></div></div>
+            <div className="fin-audio-player__controls">
+              <div className="fin-audio-player__buttons">
+                <IconButton aria-label="Предыдущий выпуск" onClick={handlePrevious}><SkipPrevious /></IconButton>
+                <IconButton className="fin-audio-player__main-play" aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'} onClick={handlePlayPause}>{isPlaying ? <Pause /> : <PlayArrow />}</IconButton>
+                <IconButton aria-label="Следующий выпуск" onClick={handleNext}><SkipNext /></IconButton>
+              </div>
+              <div className="fin-audio-player__seek"><span>{formatTime(currentTime)}</span><Slider min={0} max={duration || 100} value={Math.min(currentTime, duration || 100)} onChange={(_, value) => { if (audioRef.current) audioRef.current.currentTime = value; }} aria-label="Позиция воспроизведения" /><span>{formatTime(duration)}</span></div>
+            </div>
+            <div className="fin-audio-player__volume"><VolumeUp /><Slider value={volume} onChange={(_, value) => { setVolume(value); if (audioRef.current) audioRef.current.volume = value / 100; }} aria-label="Громкость" /></div>
+          </div>}
+        </Paper>
 
-        {/* Невидимый audio элемент для управления воспроизведением */}
-        <audio
-          ref={audioRef}
-          src={currentPodcast?.audio}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={() => setIsPlaying(false)}
-        />
-
-        {/* Фиксированный плеер внизу экрана */}
-        {currentPodcast && (
-          <PlayerContainer elevation={3}>{/* ... existing player content ... */}</PlayerContainer>
-        )}
-      </PodcastContainer>
-
-      {/* Добавляем компонент с новостями */}
-      <Box sx={{ mt: 4 }}>
-        <CompactNews />
-      </Box>
+        <aside className="fin-podcast-aside"><Paper className="fin-podcast-tip" elevation={0}><span>✳</span><strong>Пять минут сегодня — уверенность в завтрашнем дне.</strong><p>Выберите выпуск и начните с одной полезной идеи.</p></Paper><CompactNews /></aside>
+      </div>
     </Box>
   );
 };

@@ -15,6 +15,12 @@ import {
   Skeleton,
   styled,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
@@ -25,18 +31,21 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import SavingsIcon from '@mui/icons-material/Savings';
 import ArrowBack from '@mui/icons-material/ArrowBack';
+import CloseIcon from '@mui/icons-material/Close';
+import LinkIcon from '@mui/icons-material/Link';
 import { useNavigate } from 'react-router-dom';
+import { copyToClipboard } from '../../api';
 
 const NewsContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   borderRadius: '16px',
   boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.1)',
   backgroundColor: '#ffffff',
-  width: '800px',
+  width: '100%',
   margin: '0 auto',
 }));
 
-const NewsCard = styled(Card)(({ theme }) => ({
+const NewsCard = styled(Card)(() => ({
   borderRadius: '12px',
   transition: 'transform 0.3s ease, box-shadow 0.3s ease',
   height: '100%',
@@ -50,7 +59,7 @@ const NewsCard = styled(Card)(({ theme }) => ({
 }));
 
 const NewsCardMedia = styled(CardMedia)({
-  height: '160px',
+  height: '185px',
   objectFit: 'cover',
 });
 
@@ -60,7 +69,22 @@ const NewsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [bookmarked, setBookmarked] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [readingNews, setReadingNews] = useState(null);
+  const [toast, setToast] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadBookmarks = async () => {
+      try {
+        const response = await fetch('/api/bookmarks');
+        const data = await response.json();
+        if (Array.isArray(data)) setBookmarked(data);
+      } catch (error) {
+        console.error('Не удалось загрузить закладки:', error);
+      }
+    };
+    loadBookmarks();
+  }, []);
 
   const categories = [
     { id: 'all', label: 'Все новости', icon: <TrendingUpIcon /> },
@@ -166,11 +190,21 @@ const NewsPage = () => {
   }, [navigate]);
 
   const toggleBookmark = (id) => {
-    if (bookmarked.includes(id)) {
-      setBookmarked(bookmarked.filter((item) => item !== id));
-    } else {
-      setBookmarked([...bookmarked, id]);
-    }
+    const isBookmarked = bookmarked.includes(String(id));
+    setBookmarked((prev) =>
+      isBookmarked ? prev.filter((item) => String(item) !== String(id)) : [...prev, String(id)]
+    );
+    fetch(`/api/bookmarks/${id}`, { method: isBookmarked ? 'DELETE' : 'POST' }).catch((error) =>
+      console.error('Не удалось обновить закладку:', error)
+    );
+  };
+
+  const openArticle = (item) => setReadingNews(item);
+
+  const shareNews = async (item) => {
+    const url = `${window.location.origin}/news#${item.id}`;
+    await copyToClipboard(url);
+    setToast(`Ссылка на статью скопирована`);
   };
 
   const filteredNews = news.filter((item) => {
@@ -182,34 +216,9 @@ const NewsPage = () => {
   });
 
   return (
-    <Box
-      sx={{
-        padding: 2,
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-    >
-      <IconButton
-        onClick={() => navigate('/')}
-        sx={{
-          position: 'absolute',
-          left: 16,
-          top: 16,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          zIndex: 10,
-          '&:hover': { backgroundColor: 'rgba(255,255,255,1)' },
-        }}
-      >
-        <ArrowBack />
-      </IconButton>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3, textAlign: 'center' }}>
-        Финансовые новости
-      </Typography>
-
+    <Box className="fin-tool-page fin-news-page">
       <NewsContainer>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box className="fin-news-toolbar" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <TextField
             placeholder="Поиск новостей..."
             variant="outlined"
@@ -223,10 +232,10 @@ const NewsPage = () => {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: '250px' }}
+            sx={{ width: { xs: '100%', sm: '250px' } }}
           />
 
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Box className="fin-news-categories" sx={{ display: 'flex', gap: 0.5 }}>
             {categories.map((category) => (
               <Button
                 key={category.id}
@@ -263,7 +272,7 @@ const NewsPage = () => {
               <Grid container spacing={2}>
                 {filteredNews.map((item) => (
                   <Grid item xs={12} sm={6} md={4} key={item.id} sx={{ width: '100%' }}>
-                    <NewsCard>
+                    <NewsCard onClick={() => openArticle(item)} sx={{ cursor: 'pointer' }}>
                       <NewsCardMedia image={item.image} title={item.title} />
                       <CardContent
                         sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}
@@ -302,10 +311,10 @@ const NewsPage = () => {
                         >
                           <IconButton
                             size="small"
-                            onClick={() => toggleBookmark(item.id)}
-                            color={bookmarked.includes(item.id) ? 'primary' : 'default'}
+                            onClick={(e) => { e.stopPropagation(); toggleBookmark(item.id); }}
+                            color={bookmarked.includes(String(item.id)) ? 'primary' : 'default'}
                           >
-                            {bookmarked.includes(item.id) ? (
+                            {bookmarked.includes(String(item.id)) ? (
                               <BookmarkIcon />
                             ) : (
                               <BookmarkBorderIcon />
@@ -313,10 +322,14 @@ const NewsPage = () => {
                           </IconButton>
 
                           <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button size="small" startIcon={<ShareIcon />}>
+                            <Button
+                              size="small"
+                              startIcon={<ShareIcon />}
+                              onClick={(e) => { e.stopPropagation(); shareNews(item); }}
+                            >
                               Поделиться
                             </Button>
-                            <Button size="small" variant="contained">
+                            <Button size="small" variant="contained" onClick={(e) => { e.stopPropagation(); openArticle(item); }}>
                               Читать
                             </Button>
                           </Box>
@@ -336,6 +349,60 @@ const NewsPage = () => {
           </>
         )}
       </NewsContainer>
+
+      <Dialog open={Boolean(readingNews)} onClose={() => setReadingNews(null)} maxWidth="md" fullWidth>
+        {readingNews && (
+          <>
+            <DialogTitle sx={{ pr: 6 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                <Chip label={readingNews.source} size="small" color="primary" variant="outlined" />
+                <Typography variant="caption" color="text.secondary">
+                  {readingNews.date} • {readingNews.readTime}
+                </Typography>
+              </Box>
+              <Typography variant="h5" component="h3" fontWeight={700}>
+                {readingNews.title}
+              </Typography>
+              <IconButton onClick={() => setReadingNews(null)} sx={{ position: 'absolute', right: 12, top: 12 }} aria-label="Закрыть">
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Box
+                component="img"
+                src={readingNews.image}
+                alt={readingNews.title}
+                sx={{ width: '100%', height: 220, objectFit: 'cover', borderRadius: 2, mb: 2 }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+              <Typography paragraph sx={{ fontSize: '1.05rem', lineHeight: 1.7 }}>
+                {readingNews.summary}
+              </Typography>
+              <Typography paragraph color="text.secondary">
+                Аналитики Welphy советуют не принимать решения на эмоциях: следите за новостями,
+                диверсифицируйте вложения и держите «подушку безопасности». Полная статья готовится
+                для подписчиков кабинета.
+              </Typography>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
+              <Button
+                startIcon={bookmarked.includes(String(readingNews.id)) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                onClick={() => toggleBookmark(readingNews.id)}
+              >
+                {bookmarked.includes(String(readingNews.id)) ? 'В закладках' : 'В закладки'}
+              </Button>
+              <Button startIcon={<LinkIcon />} onClick={() => shareNews(readingNews)}>Скопировать ссылку</Button>
+              <Button variant="contained" onClick={() => setReadingNews(null)}>Понятно</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      <Snackbar open={Boolean(toast)} autoHideDuration={2500} onClose={() => setToast('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" variant="filled" onClose={() => setToast('')}>
+          {toast}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

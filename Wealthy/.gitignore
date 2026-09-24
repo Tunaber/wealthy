@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# База данных (содержит хэши паролей пользователей)
+backend/data
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

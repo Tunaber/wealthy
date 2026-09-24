@@ -15,7 +15,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { Add, ArrowBackIos, ArrowForwardIos, Edit, Delete, ArrowBack } from '@mui/icons-material';
+import { Add, ArrowBackIos, ArrowForwardIos, Edit, Delete } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { useNavigate } from 'react-router-dom';
@@ -161,7 +161,27 @@ const FinancialCalendar = () => {
     amount: '',
     date: null,
   });
+  const [loadingData, setLoadingData] = useState(true);
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadTransactions = async () => {
+      try {
+        const response = await fetch('/api/transactions');
+        const data = await response.json();
+        if (mounted) setTransactions(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Не удалось загрузить транзакции:', error);
+      } finally {
+        if (mounted) setLoadingData(false);
+      }
+    };
+    loadTransactions();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const categories = {
     income: ['Зарплата', 'Фриланс', 'Инвестиции', 'Подарок', 'Другое'],
@@ -197,7 +217,7 @@ const FinancialCalendar = () => {
     setModalOpen(true);
   };
 
-  const handleTransactionSubmit = () => {
+  const handleTransactionSubmit = async () => {
     if (!newTransaction.amount || !newTransaction.category) return;
 
     const transaction = {
@@ -206,10 +226,30 @@ const FinancialCalendar = () => {
       amount: parseFloat(newTransaction.amount),
     };
 
-    if (editingTransaction) {
-      setTransactions(transactions.map((t) => (t.id === editingTransaction.id ? transaction : t)));
-    } else {
-      setTransactions([...transactions, transaction]);
+    try {
+      const endpoint = editingTransaction
+        ? `/api/transactions/${transaction.id}`
+        : '/api/transactions';
+      const response = await fetch(endpoint, {
+        method: editingTransaction ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      });
+      if (!response.ok) throw new Error('Ошибка сохранения');
+      const saved = await response.json();
+
+      setTransactions((prev) =>
+        editingTransaction
+          ? prev.map((t) => (t.id === saved.id ? saved : t))
+          : [...prev, saved]
+      );
+    } catch (error) {
+      console.error('Не удалось сохранить транзакцию:', error);
+      setTransactions((prev) =>
+        editingTransaction
+          ? prev.map((t) => (t.id === transaction.id ? transaction : t))
+          : [...prev, transaction]
+      );
     }
 
     setModalOpen(false);
@@ -238,7 +278,12 @@ const FinancialCalendar = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
+    try {
+      await fetch(`/api/transactions/${transactionToDelete.id}`, { method: 'DELETE' });
+    } catch (error) {
+      console.error('Не удалось удалить транзакцию:', error);
+    }
     setTransactions(transactions.filter((t) => t.id !== transactionToDelete.id));
     setDeleteDialogOpen(false);
     setTransactionToDelete(null);
@@ -325,7 +370,7 @@ const FinancialCalendar = () => {
 
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<CalendarDayCell key={`empty-${i}`} isCurrentMonth={false} />);
+      days.push(<CalendarDayCell className="fin-calendar-day" key={`empty-${i}`} isCurrentMonth={false} />);
     }
 
     // Add cells for each day of the month
@@ -339,6 +384,7 @@ const FinancialCalendar = () => {
 
       days.push(
         <CalendarDayCell
+          className={`fin-calendar-day${isToday ? ' is-today' : ''}`}
           key={day}
           isCurrentMonth={true}
           isToday={isToday}
@@ -382,27 +428,8 @@ const FinancialCalendar = () => {
   }, [navigate]);
 
   return (
-    <Box sx={{ padding: 3, position: 'relative' }}>
-      <IconButton
-        onClick={() => navigate('/')}
-        sx={{
-          position: 'absolute',
-          left: 20,
-          top: 20,
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          zIndex: 10,
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 1)',
-          },
-        }}
-      >
-        <ArrowBack />
-      </IconButton>
-      <Typography variant="h4" gutterBottom sx={{ ml: 7 }}>
-        Финансовый календарь
-      </Typography>
-
-      <CalendarContainer>
+    <Box className="fin-tool-page fin-calendar-page">
+      <CalendarContainer className="fin-calendar-container">
         <CalendarHeader>
           <IconButton onClick={handlePrevMonth}>
             <ArrowBackIos />
@@ -415,7 +442,7 @@ const FinancialCalendar = () => {
           </IconButton>
         </CalendarHeader>
 
-        <CalendarGrid>
+        <CalendarGrid className="fin-calendar-weekdays">
           {daysOfWeek.map((day) => (
             <CalendarDayHeader key={day}>
               <Typography variant="subtitle2">{day}</Typography>
@@ -423,10 +450,18 @@ const FinancialCalendar = () => {
           ))}
         </CalendarGrid>
 
-        <CalendarGrid>{renderCalendar()}</CalendarGrid>
+        <CalendarGrid className="fin-calendar-days">
+          {loadingData ? (
+            <Typography variant="body2" sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4, color: 'text.secondary' }}>
+              Загрузка операций...
+            </Typography>
+          ) : (
+            renderCalendar()
+          )}
+        </CalendarGrid>
       </CalendarContainer>
 
-      <StatsContainer>
+      <StatsContainer className="fin-calendar-stats">
         <StatItem type="income">
           <Typography variant="h6" gutterBottom>
             Доходы
@@ -449,7 +484,7 @@ const FinancialCalendar = () => {
         </StatItem>
       </StatsContainer>
 
-      <ChartContainer>
+      <ChartContainer className="fin-calendar-chart">
         <Typography variant="h6" gutterBottom>
           Динамика доходов и расходов
         </Typography>
