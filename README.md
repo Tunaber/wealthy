@@ -1,93 +1,188 @@
-# Wealthy 
+<div align="center">
 
+# Welphy
 
+### Трекер личных финансов
 
-## Getting started
+Календарь доходов и расходов, ипотечный калькулятор, конвертер валют,
+финансовые новости, подкасты и личный кабинет с авторизацией.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+</div>
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+---
 
-## Add your files
+## О проекте
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+**Welphy** — веб-приложение для управления личными финансами. Проект
+представляет собой связку «клиент-сервер»: фронтенд на React с сборкой через
+Vite и собственный бэкенд на Node.js с хранением данных в SQLite.
+
+Приложение решает повседневные финансовые задачи в одном интерфейсе:
+фиксировать доходы и расходы по дням на календаре, прикидывать ипотечный платёж,
+переводить валюты по актуальным курсам ЦБ, следить за финансовыми новостями и
+слушать подкасты о деньгах. Данные пользователя привязаны к его аккаунту.
+
+## Возможности
+
+- **Трекер финансов** — календарь с доходами и расходами: добавление,
+  редактирование и удаление транзакций, фильтрация по месяцу.
+- **Ипотечный калькулятор** — расчёт ежемесячного платежа и общей стоимости
+  кредита.
+- **Конвертер валют** — перевод по актуальным курсам Центробанка РФ.
+- **Финансовые новости** — лента с категориями, поиском и закладками.
+- **Подкасты** — встроенный аудиоплеер с собственными аудиодорожками Welphy
+  Original.
+- **Авторизация** — регистрация, вход и выход, защита данных по токену.
+
+## Технологии
+
+| Слой      | Технологии                                                                 |
+|-----------|-----------------------------------------------------------------------------|
+| Фронтенд  | React 19, Vite, Material UI (MUI), React Router, react-big-calendar, date-fns |
+| Бэкенд    | Node.js, Express, CORS, node-fetch                                            |
+| База      | SQLite (встроенный модуль `node:sqlite`)                                     |
+| Данные    | Курсы валют — API Центробанка РФ (`cbr-xml-daily.ru`)                        |
+
+## Структура проекта
 
 ```
-cd existing_repo
-git remote add origin https://git.pmik.sibsutis.ru/T.Vishnyakov/wealthy.git
-git branch -M master
-git push -uf origin master
+Wealthy/
+├── index.html                  # точка входа Vite
+├── vite.config.js              # конфигурация Vite, прокси /api → :5000
+├── package.json                # фронтенд: зависимости и скрипты
+├── public/                     # статические файлы (логотипы, картинки новостей)
+├── src/                        # исходники React-приложения
+│   ├── main.jsx                # корневой рендер
+│   ├── App.jsx                 # маршрутизация страниц
+│   ├── api.js                  # клиент API + работа с сессией (localStorage)
+│   ├── auth/AuthContext.jsx    # контекст авторизации
+│   └── Components/
+│       ├── MainPage/           # главная страница (hero, фичи, статистика)
+│       ├── Auth/               # страница регистрации/входа
+│       ├── Calendar/           # трекер финансов (календарь транзакций)
+│       ├── MortgageCalculator/ # ипотечный калькулятор
+│       ├── CurrencyConverter/  # конвертер валют
+│       ├── News/               # финансовые новости + закладки
+│       ├── Podcasts/           # подкасты с аудиоплеером
+│       └── Layout/             # каркас страниц (шапка, навигация)
+└── backend/
+    ├── server.js               # Express-сервер, все API-роуты
+    ├── db.js                   # работа с SQLite: пользователи, сессии, транзакции, закладки
+    ├── package.json
+    └── data/                   # создаётся автоматически, здесь лежит wealthy.db
 ```
 
-## Integrate with your tools
+## Запуск
 
-- [ ] [Set up project integrations](https://git.pmik.sibsutis.ru/T.Vishnyakov/wealthy/-/settings/integrations)
+### Требования
 
-## Collaborate with your team
+- **Node.js ≥ 22.5.0** — бэкенд использует встроенный модуль `node:sqlite`.
+  Если при старте появляется предупреждение про experimental API — это нормально;
+  на Node < 23.4 может потребоваться флаг `--experimental-sqlite`.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### 1. Бэкенд
 
-## Test and Deploy
+```bash
+cd Wealthy/backend
+npm install
+npm start          # сервер на http://localhost:5000
+```
 
-Use the built-in continuous integration in GitLab.
+При первом запуске автоматически создаётся папка `data/` и файл базы данных
+`wealthy.db` с таблицами `users`, `sessions`, `transactions`, `bookmarks`.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 2. Фронтенд (в отдельном терминале)
 
-***
+```bash
+cd Wealthy
+npm install
+npm run dev        # приложение на http://localhost:3000
+```
 
-# Editing this README
+Vite проксирует запросы `/api` на `http://localhost:5000`
+(см. `vite.config.js`), поэтому отдельная настройка CORS не требуется.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### Сборка фронтенда
 
-## Suggestions for a good README
+```bash
+cd Wealthy
+npm run build      # результат в папке dist/
+npm run preview    # локальный предпросмотр сборки
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Скрипты
 
-## Name
-Choose a self-explaining name for your project.
+| Команда (в `Wealthy/`)        | Назначение                   |
+|-------------------------------|------------------------------|
+| `npm run dev`                 | dev-сервер на :3000          |
+| `npm run build`               | production-сборка в `dist/`   |
+| `npm run lint`                | проверка кода ESLint         |
+| `npm run preview`             | предпросмотр собранной версии |
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+| Команда (в `Wealthy/backend/`) | Назначение              |
+|--------------------------------|-------------------------|
+| `npm start`                    | запуск сервера на :5000 |
+| `npm run server`               | запуск с nodemon (авто-перезапуск) |
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## API
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Все запросы обслуживаются сервером на порту **5000**.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Аутентификация
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Для доступа к ресурсам пользователя передавайте токен в заголовке
+`Authorization: Bearer <token>` (или `x-auth-token`).
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+| Метод | Путь                   | Описание                                  |
+|-------|------------------------|-------------------------------------------|
+| POST  | `/api/auth/register`   | Регистрация: `name`, `email`, `password`  |
+| POST  | `/api/auth/login`      | Вход: `email`, `password`                 |
+| POST  | `/api/auth/logout`     | Завершение сессии                         |
+| GET   | `/api/auth/me`         | Текущий пользователь по токену            |
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Валюты
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+| Метод | Путь           | Описание                                        |
+|-------|----------------|-------------------------------------------------|
+| GET   | `/api/rates`   | Курс пары: `?from=RUB&to=USD` (источник — ЦБ РФ) |
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Транзакции
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+| Метод | Путь                    | Описание                              |
+|-------|-------------------------|---------------------------------------|
+| GET   | `/api/transactions`     | Список транзакций (опц. `?month=YYYY-MM`) |
+| POST  | `/api/transactions`     | Создать: `type`, `category`, `amount`, `date` |
+| PUT   | `/api/transactions/:id` | Обновить транзакцию                   |
+| DELETE| `/api/transactions/:id` | Удалить транзакцию                    |
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Закладки новостей
 
-## License
-For open source projects, say how it is licensed.
+| Метод | Путь                 | Описание            |
+|-------|----------------------|---------------------|
+| GET   | `/api/bookmarks`     | Список закладок     |
+| POST  | `/api/bookmarks/:id` | Добавить закладку   |
+| DELETE| `/api/bookmarks/:id` | Убрать закладку     |
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## Безопасность
+
+- Пароли хранятся в виде хэша **scrypt с солью** (`salt:hash`), сравнение — через
+  `crypto.timingSafeEqual`.
+- Сессии — случайные 256-битные токены, хранятся в таблице `sessions`.
+- Транзакции и закладки привязываются к пользователю по `user_id` из сессии;
+  анонимные запросы работают только с незакреплёнными (null) записями.
+- CORS ограничен источником `http://localhost:3000`.
+- При регистрации почта нормализуется (`lowercase`), проверяются обязательные
+  поля и формат email.
+
+## Примечания
+
+- Лента новостей — демонстрационная (моки с задержкой загрузки), закладки
+  сохраняются в базе данных.
+- Порт сервера можно изменить переменной окружения `PORT`.
+- Файл базы данных создаётся автоматически при старте бэкенда — ничего
+  копировать не нужно.
+
+## Лицензия
+
+Проект создан в учебных целях. Свободного использования без ограничений не
+заявлено — уточняйте условия у автора.
